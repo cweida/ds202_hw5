@@ -1,0 +1,80 @@
+---
+title: "hw5_Weida"
+author: 'Chase Weida; Github: cweida'
+date: "4/10/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ggplot2)
+```
+
+### 1. Importing Data
+```{r}
+df <- readr::read_csv(file = './Data/2019_Iowa_Liquor_Sales.csv')
+str(df)
+```
+
+### 2. Data Cleaning
+
+#### a. Extracting Latitude and Longitude
+```{r}
+df <- df %>% filter(is.na(`Store Location`) == FALSE) %>% 
+  mutate(LatLong = substr(`Store Location`, 8, nchar(`Store Location`)-1)) %>% 
+  separate(LatLong, c('Longitude','Latitude'), sep = " " ) %>%
+  select(-`Store Location`)
+```
+
+#### b. Separate Day/Month/Year
+```{r}
+df <- df %>% separate(Date, c("Month", "Day", "Year"), sep = "/") %>% transform()
+```
+
+#### c. Ensure proper data types
+```{r}
+df[, c("Latitude", "Longitude", "Day", "Month", "Year", "Vendor Number")] <- sapply(df[, c("Latitude", "Longitude", "Day", "Month", "Year", "Vendor Number")], as.numeric)
+str(df)
+```
+
+### 3. Overview
+
+#### a. Scatterplot of Lat/Long
+```{r}
+ggplot(df, mapping = aes(x = Longitude, y = Latitude)) + geom_point()
+```
+
+#### b. Breakdown of liquor categories
+```{r}
+df %>% ggplot(mapping = aes(x = `Category Name`, y = `Volume Sold (Liters)`)) + geom_bar(stat = 'identity') + coord_flip()
+
+df %>% ggplot(mapping = aes(x = `Category Name`, y = `Sale (Dollars)`)) + geom_bar(stat = 'identity') + coord_flip()
+
+df %>% group_by(`Category Name`) %>% mutate(DollarPerLiter = `Sale (Dollars)` / (`Volume Sold (Liters)`*10)) %>% filter(DollarPerLiter >= 50) %>% 
+  ggplot(mapping = aes(x = `Category Name`, y = DollarPerLiter, fill = `Category Name`)) + 
+  geom_bar(stat = 'identity') + coord_flip()
+
+```
+
+As seen above, there is a strong preference for American Vodkas in Ames. It dominates in both sales and volume sold. However, between the sales in dollars and sales in volume graphs we see that the ranking of certain types of alcohols changes. Notably, Whiskey Liqeur has the highest price per liter. Thus, there is a large discrepancy between volume sold and total sales in dollars.
+
+
+### 4. Find daily liquor sales
+```{r}
+df <- df %>% mutate(Date = as.Date(with(df,paste(Year,Day,Month, sep = '-')), "%Y-%d-%m"))
+
+df %>% ggplot(mapping = aes(x = Date, y = `Volume Sold (Liters)`)) + geom_bar(stat = "identity")
+df %>% ggplot(mapping = aes(x = Date, y = `Sale (Dollars)`)) + geom_bar(stat = "identity")
+df %>% ggplot(mapping = aes(x = Date, y = `Bottles Sold`)) + geom_bar(stat = "identity")
+```
+
+### 5. Plot volume sold by day
+```{r}
+df %>% group_by(Day) %>% mutate(TotalVolumeSold = sum(`Volume Sold (Liters)`)) %>% ggplot(mapping = aes(x = Day, y = TotalVolumeSold)) + geom_point() + geom_smooth() + facet_wrap(facets = df$Month)
+```
+
+### 6. Iowa State home games trend
+Home game dates: AUG 31, SEP 14, SEP 21, OCT 5, OCT 26, NOV 16, and NOV 23
+
+As seen in the graphs above, there is a slight increase in liquor sales the day before home games in Ames. Unfortunately, there seem to be days missing from the dataset which result in missing information which sometimes occurs around home games. This makes it difficult to be precise in determining how much more alcohol is sold before, during, and after home games, but it can be concluded that there is a slight trend towards higher liquor sales before the game.
